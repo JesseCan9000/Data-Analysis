@@ -34,7 +34,7 @@ from SquidstatPyLibrary import AisConstantCurrentElement
     # In your terminal/command line, navigate (using the cd command) to the folder containing this python file
     # In the terminal/command line type: python box_plot_auto_sweep.py
         # Press enter to run the code
-        # As the code runs, a lot of data will be pasted into the console. This is the CV data, which is being saved to csv files
+        # As the code runs, a lot of data may be pasted into the console. This is the CV data, which is being saved to csv files
     # The code will output a new folder called "CV Experiment [timestamp]", where [timestamp] is the time at which this code was run.
         # The folder contains an Excel workbook called "Box Plot [timestamp]", along with csv files that hold the raw data for the sweep rates you input
         # The "Box Plot [timestamp]" workbook contains a Summary sheet, which shows your CV curves and a linear fit for finding capacitance/area
