@@ -34,7 +34,7 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
     '''Prompts the user to double click on a pair of points. Calculates the area of the polygon bounded by the
     line between those two points and the data points between the two points. For 29 vs Temperature (C) data
     this means that the area calculated is the charge accumulated in that time in coulombs (C)'''
-    squidstat_data = pd.read_csv(squidstat_data_csv, comment='#', nrows=430)
+    squidstat_data = pd.read_csv(squidstat_data_csv, comment='#', nrows=436)
 
     fig, ax = plt.subplots()
     ax.scatter(squidstat_data['Temperature (C)'], squidstat_data['29'], color='tab:blue')
@@ -130,6 +130,39 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
         if ax.texts:
             ax.texts.pop()
 
+    def subtract_baseline(event):
+        '''Subtracts a linear baseline defined by the two nearest points clicked by the user from the data'''
+        if len(peak_time_bounds) < 2:
+            raise ValueError("Subtract Baseline: Less than two points clicked. Ensure there are at least two points selected.")
+
+        # Define point1 and point2 using the last two points clicked
+        point1 = (peak_time_bounds[-2], squidstat_data.loc[(squidstat_data['Temperature (C)'] - peak_time_bounds[-2]).abs().idxmin(), '29'])
+        point2 = (peak_time_bounds[-1], squidstat_data.loc[(squidstat_data['Temperature (C)'] - peak_time_bounds[-1]).abs().idxmin(), '29'])
+        point1_time = peak_time_bounds[-2]
+        point2_time = peak_time_bounds[-1]
+        point1_current = squidstat_data.loc[(squidstat_data['Temperature (C)'] - point1_time).abs().idxmin(), '29']
+        point2_current = squidstat_data.loc[(squidstat_data['Temperature (C)'] - point2_time).abs().idxmin(), '29']
+
+        # Calculate the baseline
+        slope = (point2[1] - point1[1]) / (point2[0] - point1[0])
+        intercept = point1[1] - slope * point1[0]
+        baseline = slope * squidstat_data['Temperature (C)'] + intercept
+
+        # Subtract the baseline from the original data
+        squidstat_data['Baseline Corrected 29'] = squidstat_data['29'] - baseline
+
+        # Plot the baseline corrected data
+        fig, ax = plt.subplots()
+        ax.plot(squidstat_data['Temperature (C)'], squidstat_data['Baseline Corrected 29'], label='Baseline Corrected Data')
+        ax.set_xlabel('Temperature (C)')
+        ax.set_ylabel('29 - Baseline')
+        plt.title('Baseline Corrected Data')
+        plt.legend()
+        plt.show()
+
+        print(f"Baseline subtracted using points: ({point1_time}, {point1_current}) and ({point2_time}, {point2_current})")
+
+
     # Add buttons to the matplotlib figure and link zoom and onclick handlers
     undo_click_ax = plt.axes([0.88, 0.01, 0.1, 0.05])
     undo_click_button = Button(undo_click_ax, 'Undo Click')
@@ -143,6 +176,10 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
     compute_button = Button(compute_ax, 'Compute Peak Area')
     compute_button.on_clicked(compute_peak_area)
 
+    baseline_subtracted_ax = plt.axes([0.88, 0.50, 0.1, 0.05])
+    baseline_subtracted_button = Button(baseline_subtracted_ax, 'Baseline\nSubtracted')
+    baseline_subtracted_button.on_clicked(subtract_baseline)
+
     fig.canvas.mpl_connect('scroll_event', lambda event: zoom(event, ax))
     fig.canvas.mpl_connect('button_press_event', onclick)
 
@@ -151,7 +188,7 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
 if __name__ == "__main__":
     # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES
     mfc_data_csv = "MFC Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
-    squidstat_data_csv = "TPD 2 2024-05-21_18.26.14_1.csv" # required for calculate_peak_areas() and plot_current_flow_rate_and_temperature()
+    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 2 2024-05-21_18.26.14_1.csv"
     temperature_data_csv = "Temperature Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
 
     DEVICE_AREA = 1.1 # cm2
