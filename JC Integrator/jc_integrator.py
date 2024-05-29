@@ -7,6 +7,7 @@ from mplcursors import cursor as mpl_cursor
 import math
 import numpy as np
 from shapely.geometry import Polygon as ShapelyPolygon
+from scipy.ndimage import gaussian_filter
 
 def zoom(event, ax):
     ''' Utility function to allow for zooming into/out of matplotlib plot with mouse scroll wheel'''
@@ -30,7 +31,7 @@ def order_of_magnitude(number):
     there is roughly equal weighting for the x and y direcitons in finding the nearest data point to where you double click'''
     return math.floor(math.log10(abs(number)))
 
-def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
+def main(squidstat_data_csv, label_peaks=False):
     '''Prompts the user to double click on a pair of points. Calculates the area of the polygon bounded by the
     line between those two points and the data points between the two points. For 29 vs Temperature (C) data
     this means that the area calculated is the charge accumulated in that time in coulombs (C)'''
@@ -150,10 +151,12 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
 
         # Subtract the baseline from the original data
         squidstat_data['Baseline Corrected 29'] = squidstat_data['29'] - baseline
+        yhat = gaussian_filter(squidstat_data['Baseline Corrected 29'], 6) # std dev for gaussian kernel = 6
 
         # Plot the baseline corrected data
         fig, ax = plt.subplots()
-        ax.plot(squidstat_data['Temperature (C)'], squidstat_data['Baseline Corrected 29'], label='Baseline Corrected Data')
+        ax.plot(squidstat_data['Temperature (C)'], squidstat_data['Baseline Corrected 29'], label='Baseline Corrected Data', color="blue")
+        ax.plot(squidstat_data['Temperature (C)'], yhat, label='Smoothed Baseline Corrected Data', color="red") # using Savitzky-Golay filter
         ax.set_xlabel('Temperature (C)')
         ax.set_ylabel('29 - Baseline')
         plt.title('Baseline Corrected Data')
@@ -161,6 +164,14 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
         plt.show()
 
         print(f"Baseline subtracted using points: ({point1_time}, {point1_current}) and ({point2_time}, {point2_current})")
+
+        # Find the maximum y value between point1 and point2
+        index1 = np.searchsorted(squidstat_data['Temperature (C)'], point1[0])
+        index2 = np.searchsorted(squidstat_data['Temperature (C)'], point2[0])
+        max_y = np.max(yhat[index1:index2+1])
+        max_y_x = squidstat_data['Temperature (C)'][np.argmax(yhat[index1:index2+1]) + index1]
+        print(f"Maximum y value between baseline points: {max_y}")
+        print(f"Corresponding x value: {max_y_x}")
 
 
     # Add buttons to the matplotlib figure and link zoom and onclick handlers
@@ -177,7 +188,7 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
     compute_button.on_clicked(compute_peak_area)
 
     baseline_subtracted_ax = plt.axes([0.88, 0.50, 0.1, 0.05])
-    baseline_subtracted_button = Button(baseline_subtracted_ax, 'Baseline\nSubtracted')
+    baseline_subtracted_button = Button(baseline_subtracted_ax, 'Subtract\nBaseline')
     baseline_subtracted_button.on_clicked(subtract_baseline)
 
     fig.canvas.mpl_connect('scroll_event', lambda event: zoom(event, ax))
@@ -187,9 +198,11 @@ def calculate_peak_areas(squidstat_data_csv, label_peaks=False):
 
 if __name__ == "__main__":
     # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES
-    mfc_data_csv = "MFC Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
-    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 2 2024-05-21_18.26.14_1.csv"
-    temperature_data_csv = "Temperature Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
+    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 1 2024-05-21_16.56.21_1.csv"
+    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 2 2024-05-21_18.26.14_1.csv"
+    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05222024/TPD 1 2024-05-22_11.52.27_1.csv"
+    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05222024/TPD 2 2024-05-22_15.41.55_1.csv"
+    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05232024/TPD 1 2024-05-23_16.41.39_1.csv"
 
     DEVICE_AREA = 1.1 # cm2
 
@@ -198,4 +211,4 @@ if __name__ == "__main__":
 
     # plot_current_flow_rate_and_temperature(squidstat_data_csv, mfc_data_csv, temperature_data_csv)
 
-    calculate_peak_areas(squidstat_data_csv, label_peaks=True)
+    main(squidstat_data_csv, label_peaks=True)
