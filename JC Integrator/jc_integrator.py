@@ -38,7 +38,7 @@ def main(squidstat_data_csv, label_peaks=False):
     squidstat_data = pd.read_csv(squidstat_data_csv, comment='#', nrows=436)
 
     fig, ax = plt.subplots()
-    ax.scatter(squidstat_data['Temperature (C)'], squidstat_data['29'], color='tab:blue')
+    ax.scatter(squidstat_data['Temperature (C)'], squidstat_data['29'], color='blue')
     ax.set_xlabel('Temperature (C)')
     ax.set_ylabel('29')
     plt.title('29 vs. Temperature (C)')
@@ -155,7 +155,7 @@ def main(squidstat_data_csv, label_peaks=False):
 
         # Plot the baseline corrected data
         fig, ax = plt.subplots()
-        ax.plot(squidstat_data['Temperature (C)'], squidstat_data['Baseline Corrected 29'], label='Baseline Corrected Data', color="blue")
+        ax.scatter(squidstat_data['Temperature (C)'], squidstat_data['Baseline Corrected 29'], label='Baseline Corrected Data', color="blue")
         ax.plot(squidstat_data['Temperature (C)'], yhat, label='Smoothed Baseline Corrected Data', color="red") # using Savitzky-Golay filter
         ax.set_xlabel('Temperature (C)')
         ax.set_ylabel('29 - Baseline')
@@ -199,8 +199,8 @@ def main(squidstat_data_csv, label_peaks=False):
 if __name__ == "__main__":
     # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES
     # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 1 2024-05-21_16.56.21_1.csv"
-    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 2 2024-05-21_18.26.14_1.csv"
-    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05222024/TPD 1 2024-05-22_11.52.27_1.csv"
+    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05212024/TPD 2 2024-05-21_18.26.14_1.csv"
+    # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05222024/TPD 1 2024-05-22_11.52.27_1.csv"
     # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05222024/TPD 2 2024-05-22_15.41.55_1.csv"
     # squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/05232024/TPD 1 2024-05-23_16.41.39_1.csv"
 
