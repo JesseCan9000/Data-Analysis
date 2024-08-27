@@ -193,7 +193,7 @@ def main(dataframe_csv, label_peaks=False):
         plt.title('Baseline Corrected Data')
         plt.legend()
 
-        dataframe.to_csv('out.csv', index=False)
+        # dataframe.to_csv('out.csv', index=False)
         plt.show()
 
         print(f"Baseline subtracted using points: ({point1_x}, {point1_y:.2e}) and ({point2_x}, {point2_y:.2e})")
