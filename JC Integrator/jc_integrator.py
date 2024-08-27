@@ -32,17 +32,19 @@ def order_of_magnitude(number):
     return math.floor(math.log10(abs(number)))
 
 def main(dataframe_csv, label_peaks=False):
-    '''Prompts the user to double click on a pair of points. Calculates the area of the polygon bounded by the
+    ''' Prompts the user to double click on a pair of points. Calculates the area of the polygon bounded by the
     line between those two points and the data points between the two points. For 29 vs Temperature (C) data
-    this means that the area calculated is the charge accumulated in that time in coulombs (C)'''
-    dataframe = pd.read_csv(dataframe_csv, comment='#', nrows=770)
+    this means that the area calculated is the charge accumulated in that time in coulombs (C) '''
+    dataframe = pd.read_csv(dataframe_csv, comment='#', nrows=nrows)
 
-    dataframe['29'] = dataframe['29']/CEM_gain
+    dataframe = dataframe.iloc[:-1] # remove last row of data because it often has NaN for the mass of interest, which ruins this function
+
+    dataframe[y_axis] = dataframe[y_axis]/CEM_gain
 
     fig, ax = plt.subplots()
-    ax.scatter(dataframe[x_axis_column], dataframe['29'], color='blue')
+    ax.scatter(dataframe[x_axis_column], dataframe[y_axis], color='blue')
     ax.set_xlabel(x_axis_column)
-    ax.set_ylabel('29')
+    ax.set_ylabel(y_axis)
     plt.title(f'29 vs. {x_axis_column}')
 
     peak_x_bounds = []
@@ -50,8 +52,8 @@ def main(dataframe_csv, label_peaks=False):
     peak_count = 1
     
     def onclick(event):
-        '''Handler for when the user double clicks in the matplotlib plot area. Finds the nearest data point in the provided data
-        relative to where you click. Gets the y and x at that nearest index.'''
+        ''' Handler for when the user double clicks in the matplotlib plot area. Finds the nearest data point in the provided data
+        relative to where you click. Gets the y and x at that nearest index. '''
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         if event.dblclick and (event.xdata is not None) and (event.ydata is not None) and (xlim[0] <= event.xdata <= xlim[1]) and (ylim[0] <= event.ydata <= ylim[1]):
@@ -59,19 +61,19 @@ def main(dataframe_csv, label_peaks=False):
             iy = event.ydata
 
             x_order = order_of_magnitude(dataframe[x_axis_column].median())
-            y_order = order_of_magnitude(dataframe['29'].mean())
-            distances = np.sqrt(((dataframe[x_axis_column].values - ix)/math.pow(10, x_order))**2 + ((dataframe['29'].values - iy)*math.pow(10, -1*y_order))**2)
+            y_order = order_of_magnitude(dataframe[y_axis].mean())
+            distances = np.sqrt(((dataframe[x_axis_column].values - ix)/math.pow(10, x_order))**2 + ((dataframe[y_axis].values - iy)/math.pow(10, y_order))**2)
             nearest_index = np.argmin(distances)
             
             nearest_x = dataframe.iloc[nearest_index][x_axis_column]
-            nearest_y = dataframe.iloc[nearest_index]['29']
+            nearest_y = dataframe.iloc[nearest_index][y_axis]
 
             peak_x_bounds.append(nearest_x)
-            print(f"Clicked point: Time (s)={nearest_x}, 29={nearest_y:.2e}")
+            print(f"Clicked point: {x_axis_column}={nearest_x}, 29={nearest_y:.2e}")
     
     def compute_peak_area(event=None, convert_to_nC=True):
-        '''Draws a polygon bounded by the two points double clicked by the user and the data points between thsoe two bounds.
-        Uses Shapely to calculate the area of this 29 vs Temperature (C) polygon and convert it into nC'''
+        ''' Draws a polygon bounded by the two points double clicked by the user and the data points between thsoe two bounds.
+        Uses Shapely to calculate the area of this 29 vs Temperature (C) polygon and convert it into nC '''
         nonlocal peak_count
 
         # Check if there are an even number of peaks clicked. Even is required because exactly two points define the bounds of a peak in this code.
@@ -85,14 +87,14 @@ def main(dataframe_csv, label_peaks=False):
         end_index = (dataframe[x_axis_column] - end_x).abs().idxmin()
 
         # Get the y values corresponding to the clicked points
-        start_y = dataframe.loc[start_index, '29']
-        end_y = dataframe.loc[end_index, '29']
+        start_y = dataframe.loc[start_index, y_axis]
+        end_y = dataframe.loc[end_index, y_axis]
 
         # Create a polygon representing the area between the line made from the double clicked points and the curve
         polygon_points = [(start_x, start_y)]
         for index, row in dataframe.iterrows():
             if start_x <= row[x_axis_column] <= end_x:
-                polygon_points.append((row[x_axis_column], row['29']))
+                polygon_points.append((row[x_axis_column], row[y_axis]))
         polygon_points.append((end_x, end_y))
         polygon = Polygon(polygon_points, closed=True, color='red', alpha=0.5)
 
@@ -124,9 +126,9 @@ def main(dataframe_csv, label_peaks=False):
         return polygon_area, start_index, end_index, start_x, end_x
 
     def undo_click(event):
-        '''Undo the most recent double click event. This function is called when the Undo Click button is clicked. Useful if you have a
+        ''' Undo the most recent double click event. This function is called when the Undo Click button is clicked. Useful if you have a
         misclick/the nearest data point from onclick() is incorrect. Since there needs to be an even number of double clicks to calculate 
-        the next peak area, click the undo button if you receive the "Odd number of points double clicked..." error.'''
+        the next peak area, click the undo button if you receive the "Odd number of points double clicked..." error. '''
         if peak_x_bounds:
             ix = peak_x_bounds.pop()
             print(f"Undo Click: Time={ix} removed.")
@@ -144,12 +146,12 @@ def main(dataframe_csv, label_peaks=False):
     #         raise ValueError("Subtract Baseline: Less than two points clicked. Ensure there are at least two points selected.")
 
     #     # Define point1 and point2 using the last two points clicked
-    #     point1 = (peak_x_bounds[-2], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-2]).abs().idxmin(), '29'])
-    #     point2 = (peak_x_bounds[-1], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-1]).abs().idxmin(), '29'])
+    #     point1 = (peak_x_bounds[-2], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-2]).abs().idxmin(), y_axis])
+    #     point2 = (peak_x_bounds[-1], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-1]).abs().idxmin(), y_axis])
     #     point1_x = peak_x_bounds[-2]
     #     point2_x = peak_x_bounds[-1]
-    #     point1_y = dataframe.loc[(dataframe[x_axis_column] - point1_x).abs().idxmin(), '29']
-    #     point2_y = dataframe.loc[(dataframe[x_axis_column] - point2_x).abs().idxmin(), '29']
+    #     point1_y = dataframe.loc[(dataframe[x_axis_column] - point1_x).abs().idxmin(), y_axis]
+    #     point2_y = dataframe.loc[(dataframe[x_axis_column] - point2_x).abs().idxmin(), y_axis]
 
     #     # Calculate E, the activation energy of desorption from slope of ln(p) vs 1/T [=] 1/K
     #     slope = (np.log(point2[1]) - np.log(point1[1])) / ( (1/(point2[0]+273)) - (1/point1[0]+273) )
@@ -161,17 +163,17 @@ def main(dataframe_csv, label_peaks=False):
     #     print(f'Activation energy of desorption E = {E} kJ/mol')
 
     def subtract_baseline(event):
-        '''Subtracts a linear baseline defined by the two nearest points clicked by the user from the data'''
+        ''' Subtracts a linear baseline defined by the two nearest points clicked by the user from the data '''
         if len(peak_x_bounds) < 2:
             raise ValueError("Subtract Baseline: Less than two points clicked. Ensure there are at least two points selected.")
 
         # Define point1 and point2 using the last two points clicked
-        point1 = (peak_x_bounds[-2], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-2]).abs().idxmin(), '29'])
-        point2 = (peak_x_bounds[-1], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-1]).abs().idxmin(), '29'])
+        point1 = (peak_x_bounds[-2], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-2]).abs().idxmin(), y_axis])
+        point2 = (peak_x_bounds[-1], dataframe.loc[(dataframe[x_axis_column] - peak_x_bounds[-1]).abs().idxmin(), y_axis])
         point1_x = peak_x_bounds[-2]
         point2_x = peak_x_bounds[-1]
-        point1_y = dataframe.loc[(dataframe[x_axis_column] - point1_x).abs().idxmin(), '29']
-        point2_y = dataframe.loc[(dataframe[x_axis_column] - point2_x).abs().idxmin(), '29']
+        point1_y = dataframe.loc[(dataframe[x_axis_column] - point1_x).abs().idxmin(), y_axis]
+        point2_y = dataframe.loc[(dataframe[x_axis_column] - point2_x).abs().idxmin(), y_axis]
 
         # Calculate the baseline
         slope = (point2[1] - point1[1]) / (point2[0] - point1[0])
@@ -179,7 +181,7 @@ def main(dataframe_csv, label_peaks=False):
         baseline = slope * dataframe[x_axis_column] + intercept
 
         # Subtract the baseline from the original data
-        dataframe['Baseline Corrected 29'] = dataframe['29'] - baseline
+        dataframe['Baseline Corrected 29'] = dataframe[y_axis] - baseline
         yhat = gaussian_filter(dataframe['Baseline Corrected 29'], 6) # std dev for gaussian kernel = 6
 
         # Plot the baseline corrected data
@@ -194,14 +196,14 @@ def main(dataframe_csv, label_peaks=False):
         dataframe.to_csv('out.csv', index=False)
         plt.show()
 
-        print(f"Baseline subtracted using points: ({point1_x}, {point1_y}) and ({point2_x}, {point2_y})")
+        print(f"Baseline subtracted using points: ({point1_x}, {point1_y:.2e}) and ({point2_x}, {point2_y:.2e})")
 
         # Find the maximum y value between point1 and point2
         index1 = np.searchsorted(dataframe[x_axis_column], point1[0])
         index2 = np.searchsorted(dataframe[x_axis_column], point2[0])
         max_y = np.max(yhat[index1:index2+1])
         max_y_x = dataframe[x_axis_column][np.argmax(yhat[index1:index2+1]) + index1]
-        print(f"Maximum y value between baseline points: {max_y}")
+        print(f"Maximum y value between baseline points: {max_y:.2e}")
         print(f"Corresponding x value: {max_y_x}")
 
     def calculate_mols_desorbed(event):
@@ -265,21 +267,18 @@ def main(dataframe_csv, label_peaks=False):
 if __name__ == "__main__":
     # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES AND OPTIONS FOR THE SCRIPT
 
-    dataframe_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/08062024/13CO TPD 2 2024-08-07_10.32.54_1.csv" 
+    dataframe_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/CO_TPD/Device CNT 2/08232024/13CO TPD 1 2024-08-23_12.05.55_1.csv" 
 
     DEVICE_AREA = 1 # cm2
     reactor_volume = 4.397 # L
     CEM_gain = 1064
 
-    versus_time = True # Plot versus time if True, plot versus temperature if False
+    versus_time = False # Plot versus time if True, plot versus temperature if False
+
+    y_axis = '29' # Change to the column in your csv file you would like to use as the y axis. For example: '29' for looking at the mass 29 from a mass spec signal
     y_axis_units = 'torr'
 
     ###############################################################################################################
-
-    # dataframe_csv = '150C trial 3.csv'
-    # dataframe_csv = 'test.csv'
-
-    # plot_current_flow_rate_and_temperature(dataframe_csv, mfc_data_csv, temperature_data_csv)
 
     if versus_time:
         x_axis_column = 'Time (s)'
@@ -288,5 +287,6 @@ if __name__ == "__main__":
         x_axis_column = 'Temperature (C)'
         x_axis_units = 'C'
 
+    nrows = 600
 
     main(dataframe_csv, label_peaks=True)
