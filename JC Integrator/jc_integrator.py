@@ -273,7 +273,7 @@ if __name__ == "__main__":
     reactor_volume = 4.397 # L
     CEM_gain = 1064
 
-    versus_time = False # Plot versus time if True, plot versus temperature if False
+    versus_time = True # Plot versus time if True, plot versus temperature if False
 
     y_axis = '29' # Change to the column in your csv file you would like to use as the y axis. For example: '29' for looking at the mass 29 from a mass spec signal
     y_axis_units = 'torr'
