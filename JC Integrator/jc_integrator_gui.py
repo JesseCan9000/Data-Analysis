@@ -11,6 +11,35 @@ from shapely.geometry import Polygon as ShapelyPolygon
 from scipy.ndimage import gaussian_filter
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import ttk
+
+class ToolTip:
+    """Class to create a tooltip for a given widget."""
+    def __init__(self, widget, text='widget info'):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window = None
+
+        # Bind events to show and hide the tooltip
+        self.widget.bind('<Enter>', self.show_tooltip)
+        self.widget.bind('<Leave>', self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        """Display the tooltip near the widget."""
+        # Create a new top-level window for the tooltip
+        self.tooltip_window = tk.Toplevel(self.widget)
+        self.tooltip_window.wm_overrideredirect(True)  # Remove window decorations
+        self.tooltip_window.wm_geometry(f"+{self.widget.winfo_rootx() + 20}+{self.widget.winfo_rooty() + 20}")
+        
+        # Create a label inside the tooltip window
+        label = tk.Label(self.tooltip_window, text=self.text, background="light yellow", relief='solid', borderwidth=2)
+        label.pack(ipadx=5, ipady=5)
+
+    def hide_tooltip(self, event=None):
+        """Hide the tooltip if it's visible."""
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
 
 # # Work in progress DraggableText class
 # class DraggableText:
@@ -71,11 +100,8 @@ def main(dataframe_csv, label_peaks=False):
     ''' Prompts the user to double click on a pair of points. Calculates the area of the polygon bounded by the
     line between those two points and the data points between the two points. For 29 vs Temperature (C) data
     this means that the area calculated is the charge accumulated in that time in coulombs (C) '''
-    dataframe = pd.read_csv(dataframe_csv, comment='#', nrows=nrows)
 
     dataframe = dataframe.iloc[:-1] # remove last row of data because it often has NaN for the mass of interest, which ruins this function
-
-    dataframe[y_axis] = dataframe[y_axis]/CEM_gain
 
     fig, ax = plt.subplots()
     ax.scatter(dataframe[x_axis_column], dataframe[y_axis], color='blue')
@@ -306,33 +332,80 @@ def main(dataframe_csv, label_peaks=False):
     plt.show()
 
 if __name__ == "__main__":
-    # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES AND OPTIONS FOR THE SCRIPT
-
     # Create a Tkinter root window
     root = tk.Tk()
-    root.withdraw()  # Hide the root window
+    root.title('JC Integrator')
 
-    # Open a file dialog and return the selected file's path
-    dataframe_csv = filedialog.askopenfilename() 
+    # This function runs faster if placed after initializing tk window root than before it
+    def get_path():
+        global dataframe
+        
+        csv_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])  # Get the path from file dialog
+        
+        if csv_path == '':
+            csv_path == 'Please choose a CSV file'
+            path_label.config(text=csv_path)  # Update the path label text
 
-    # DEVICE_AREA = 1 # cm2 this variable is not currently used
-    reactor_volume = 4.397 # L, for calculating number of mols desorbed if in versus_time mode
-    CEM_gain = 1064 # Only useful for TPD analysis, if electron multiplier was used. Else change this to 1
+            return
+        else:
+            nrows = 600 # CHANGE THIS
 
-    versus_time = False # Plot versus time if True, plot versus temperature if False
+            path_label.config(text=csv_path)
+            dataframe = pd.read_csv(csv_path, comment='#', nrows=nrows)  # Load the dataframe
 
-    y_axis = '29' # Change to the column in your csv file you would like to use as the y axis. For example: '29' for looking at the mass 29 from a mass spec signal
-    y_axis_units = 'torr'
+            # Update the column names in the Comboboxes
+            y_col_name['values'] = list(dataframe.columns)
+            x_col_name['values'] = list(dataframe.columns)
 
-    ###############################################################################################################
+            # Submit button
+            submit_btn = ttk.Button(root, text="Submit", command=lambda:main(dataframe))
+            submit_btn.grid(row=5, column=1, padx=10, pady=10)
 
-    if versus_time:
-        x_axis_column = 'Time (s)'
-        x_axis_units = 's'
-    else:
-        x_axis_column = 'Temperature (C)'
-        x_axis_units = 'C'
+    global dataframe
+    dataframe = pd.DataFrame(['N/A'], columns=['Please choose a CSV file'])  # Initialize empty dataframe
 
-    nrows = 600
+    # Y-axis column name
+    ttk.Label(root, text="Y-axis:").grid(row=0, column=0, padx=10, pady=5)
+    y_col_name = ttk.Combobox(root, values=list(dataframe.columns))
+    y_col_name.grid(row=0, column=1, padx=10, pady=5)
 
-    main(dataframe_csv, label_peaks=True)
+    # Y-axis units
+    ttk.Label(root, text="Y-axis Units:").grid(row=1, column=0, padx=10, pady=5)
+    y_units = ttk.Entry(root)
+    y_units.grid(row=1, column=1, padx=10, pady=5)
+
+    # X-axis column name
+    ttk.Label(root, text="X-axis:").grid(row=2, column=0, padx=10, pady=5)
+    x_col_name = ttk.Combobox(root, values=list(dataframe.columns))
+    x_col_name.grid(row=2, column=1, padx=10, pady=5)
+
+    # X-axis units
+    ttk.Label(root, text="X-axis Units:").grid(row=3, column=0, padx=10, pady=5)
+    x_units = ttk.Entry(root)
+    x_units.grid(row=3, column=1, padx=10, pady=5)
+
+    # File path selection
+    ttk.Label(root, text='CSV File:').grid(row=4, column=0, padx=10, pady=5)
+    path_label = ttk.Label(root, text='Please choose a CSV file')
+    path_label.grid(row=4, column=1, padx=10, pady=5)
+
+    # Choose file button
+    choose_file_btn = ttk.Button(root, text="Choose File", command=get_path)
+    choose_file_btn.grid(row=4, column=2, padx=10, pady=5)
+
+    # Create a question mark label in the top-right corner
+    question_mark = ttk.Label(root, text="?", foreground="grey", font=("Arial", 14, "bold"))
+    question_mark.place(relx=1.0, rely=0.0, anchor='ne', x=-10, y=10)  # Position in top-right corner
+
+    # Add a tooltip to the question mark
+    instructions = """Instructions:
+    1. Click "Choose File" to select a CSV file.
+    2. Choose the appropriate X and Y axis columns from the dropdowns.
+    3. (Optional) Enter the units for both axes.
+    4. Submit the selections to generate the plot.
+    
+    Choosing a file can sometimes make the program freeze. Just wait a few seconds and it should be good."""
+    ToolTip(question_mark, text=instructions)
+
+    # Run the application
+    root.mainloop()
