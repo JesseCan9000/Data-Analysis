@@ -1,6 +1,7 @@
+import sys
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, Slider
 from matplotlib.patches import Polygon
 import matplotlib.patheffects as pe
 from matplotlib.text import Text
@@ -40,6 +41,14 @@ class ToolTip:
         if self.tooltip_window:
             self.tooltip_window.destroy()
             self.tooltip_window = None
+
+class PrintLogger:
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+
+    def write(self, message):
+        self.text_widget.insert('end', message)
+        self.text_widget.see('end')
 
 # # Work in progress DraggableText class
 # class DraggableText:
@@ -140,7 +149,7 @@ def main(dataframe, label_peaks=False):
             nearest_y = dataframe.iloc[nearest_index][y_label]
 
             peak_x_bounds.append(nearest_x)
-            print(f"Clicked point: {x_label}={nearest_x}, 29={nearest_y:.2e}")
+            print(f"• Clicked point: {x_label}={nearest_x}, {y_label}={nearest_y:.2e}")
     
     def compute_peak_area(event=None, convert_to_nC=True):
         ''' Draws a polygon bounded by the two points double clicked by the user and the data points between thsoe two bounds.
@@ -164,17 +173,20 @@ def main(dataframe, label_peaks=False):
         # Create a polygon representing the area between the line made from the double clicked points and the curve
         polygon_points = [(start_x, start_y)]
         for index, row in dataframe.iterrows():
-            if start_x <= row[x_label] <= end_x:
+            if (start_x <= row[x_label] <= end_x) and (min(start_y, end_y) <= row[y_label]):
                 polygon_points.append((row[x_label], row[y_label]))
         polygon_points.append((end_x, end_y))
         polygon = Polygon(polygon_points, closed=True, color='red', alpha=0.5)
-
         # Calculate area based on polygon
         vertices = polygon.get_xy()
         shapely_polygon = ShapelyPolygon(vertices)
         polygon_area = shapely_polygon.area
-        print(f"Peak Area Abs. Value: {polygon_area:.2e}") # Print the peak area
 
+        # Print the peak area
+        if x_units.get() and y_units.get():
+            print(f"• Peak Area Abs. Value: {polygon_area:.2e} {y_units.get()}•{x_units.get()}")
+        else:
+            print(f"• Peak Area Abs. Value: {polygon_area:.2e}")
         # Extract the exterior coordinates of the polygon
         exterior_coords = shapely_polygon.exterior.coords.xy
         exterior_x, exterior_y = exterior_coords[0], exterior_coords[1]
@@ -202,7 +214,7 @@ def main(dataframe, label_peaks=False):
         the next peak area, click the undo button if you receive the "Odd number of points double clicked..." error. '''
         if peak_x_bounds:
             ix = peak_x_bounds.pop()
-            print(f"Undo Click: Time={ix} removed.")
+            print(f"• Undo Click: {x_label}={ix}, {y_label}={iy} removed.")
 
     def remove_peak(event):
         '''Removes the most recent peak and peak label upon clicking the Remove Peak button. Useful for keeping the screen
@@ -253,7 +265,7 @@ def main(dataframe, label_peaks=False):
 
         # Subtract the baseline from the original data
         dataframe['Baseline Corrected 29'] = dataframe[y_label] - baseline
-        yhat = gaussian_filter(dataframe['Baseline Corrected 29'], 15) # std dev for gaussian kernel = 6
+        yhat = gaussian_filter(dataframe['Baseline Corrected 29'], gaussian_filter_slider.val)
 
         # Plot the baseline corrected data
         fig, ax = plt.subplots()
@@ -267,15 +279,15 @@ def main(dataframe, label_peaks=False):
         # dataframe.to_csv('out.csv', index=False)
         plt.show()
 
-        print(f"Baseline subtracted using points: ({point1_x}, {point1_y:.2e}) and ({point2_x}, {point2_y:.2e})")
+        print(f"• Baseline subtracted using points: ({point1_x}, {point1_y:.2e}) and ({point2_x}, {point2_y:.2e}), and gaussian filter stdev: {gaussian_filter_slider.val:.2f}")
 
         # Find the maximum y value between point1 and point2
         index1 = np.searchsorted(dataframe[x_label], point1[0])
         index2 = np.searchsorted(dataframe[x_label], point2[0])
         max_y = np.max(yhat[index1:index2+1])
         max_y_x = dataframe[x_label][np.argmax(yhat[index1:index2+1]) + index1]
-        print(f"Maximum y value between baseline points: {max_y:.2e}")
-        print(f"Corresponding x value: {max_y_x}")
+        print(f"• Maximum y value between baseline points: {max_y:.2e}")
+        print(f"• Corresponding x value: {max_y_x}")
 
     def calculate_mols_desorbed(event):
         ''' Calculates the moles desorbed using the peak area of P vs time, reactor volume, R, and T_avg. Only valid in versus_time = True mode '''
@@ -285,23 +297,23 @@ def main(dataframe, label_peaks=False):
         integral, start_index, end_index, start_x, end_x = compute_peak_area(convert_to_nC=False) # integral of y(x)dx
 
         print()
-        print(f'Integral: {integral:.2e} {y_label_units}•{x_axis_units}')
+        print(f'• Integral: {integral:.2e} {y_label_units}•{x_axis_units}')
 
-        print(f'Reactor Volume: {reactor_volume} L')
+        print(f'• Reactor Volume: {reactor_volume} L')
 
         subset = dataframe['Temperature (C)'][start_index:end_index]
         T_avg = subset.mean() + 273
 
-        print(f'Average T: {T_avg:.2f} K')
+        print(f'• Average T: {T_avg:.2f} K')
 
         delta_t = end_x - start_x
 
-        print(f'Delta t: {delta_t:.2f}')
+        print(f'• Delta t: {delta_t:.2f}')
 
         n_tilde = (integral*reactor_volume)/(R*T_avg) # mols•s
         n = n_tilde/delta_t # mols of gas desorbed
 
-        print(f'Moles of gas desorbed: {n:.2e} mols')
+        print(f'• Moles of gas desorbed: {n:.2e} mols')
         print()
 
     # Add buttons to the matplotlib figure and link zoom and onclick handlers
@@ -317,7 +329,10 @@ def main(dataframe, label_peaks=False):
     compute_button = Button(compute_ax, 'Compute Peak Area')
     compute_button.on_clicked(compute_peak_area)
 
-    subtract_baseline_ax = plt.axes([0.88, 0.50, 0.12, 0.07])
+    gaussian_filter_ax = plt.axes([0.92, 0.60, 0.07, 0.15])
+    gaussian_filter_slider = Slider(gaussian_filter_ax, 'Gaussian Filter\nStd Dev', 0, 10, valinit=5, orientation='vertical')
+
+    subtract_baseline_ax = plt.axes([0.92, 0.50, 0.07, 0.07])
     subtract_baseline_button = Button(subtract_baseline_ax, 'Subtract\nBaseline')
     subtract_baseline_button.on_clicked(subtract_baseline)
 
@@ -345,7 +360,8 @@ if __name__ == "__main__":
         # global dataframe
         
         csv_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])  # Get the path from file dialog
-        
+        print(f'File name: {csv_path.split("/")[-1]}')
+
         if csv_path == '':
             csv_path == 'Please choose a CSV file'
             path_label.config(text=csv_path)  # Update the path label text
@@ -401,13 +417,23 @@ if __name__ == "__main__":
 
     # Add a tooltip to the question mark
     instructions = """Instructions:
-    1. Click "Choose File" to select a CSV file.
-    2. Choose the appropriate X and Y axis columns from the dropdowns.
-    3. (Optional) Enter the units for both axes.
-    4. Submit the selections to generate the plot.
+    1. Click "Choose File" to select a CSV file
+    2. Choose the appropriate X and Y axis columns from the dropdowns
+    3. (Optional) Enter the units for both axes
+    4. Submit the selections to generate the plot
+    5. Double click to select points
+    6. Subtract baseline or calculate peak area as needed
     
-    Choosing a file can sometimes make the program freeze. Just wait a few seconds and it should be good."""
+    Choosing a file can sometimes make the program freeze. Just wait a few seconds and it should work."""
     ToolTip(question_mark, text=instructions)
+
+    # Add a text box at the bottom of the window for logging print statements
+    log_text = tk.Text(root, height=10, width=50)
+    log_text.grid(row=6, columnspan=5, padx=10, pady=10)
+
+
+    # Replace the sys.stdout with our own PrintLogger
+    sys.stdout = PrintLogger(log_text)
 
     # Run the application
     root.mainloop()
