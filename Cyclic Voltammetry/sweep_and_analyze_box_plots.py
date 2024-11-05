@@ -45,10 +45,10 @@ from SquidstatPyLibrary import AisConstantCurrentElement
 SWEEPS = [1500, 1250, 1000, 750, 500]
 
 # Enter device information
-DEVICE_BATCH = "Ru Devices 9_1_23"
-DEVICE_NUMBER = "Ru 7.5cm2 Device 1 350C 20Ar Ramp"
-ACTIVE_AREA = 7.5 # cm2
-MAX_VOLTAGE = 1 # V
+DEVICE_BATCH = "Jaeheon LiNbO3"
+DEVICE_NUMBER = "000 457"
+ACTIVE_AREA = 1 # cm2
+MAX_VOLTAGE = 0.5 # V
 MIN_VOLTAGE = -1 # V
 
 ################################################ Functions ################################################
@@ -112,7 +112,7 @@ def run_cyclic_voltammetry_experiment(dEdt):
 
     # Append the cyclic voltammetry element to the experiment and set it to run 1 time
     experiment = AisExperiment()
-    experiment.appendElement(AisConstantPotElement(MIN_VOLTAGE/2, 0.25, 0.5), 1) # Add a half second of quiet time before each CV experiment to get rid of tail
+    experiment.appendElement(AisConstantPotElement(MIN_VOLTAGE, 0.25, 0.5), 1) # Add a half second of quiet time before each CV experiment to get rid of tail
     experiment.appendElement(cvElement, 1)
 
     handler.uploadExperimentToChannel(0, experiment)
@@ -137,7 +137,7 @@ tracker = AisDeviceTracker.Instance()
 tracker.newDeviceConnected.connect(lambda deviceName: print("Device is Connected: %s" % deviceName))
 tracker.connectToDeviceOnComPort("COM17")
 
-handler = tracker.getInstrumentHandler("Plus1931")
+handler = tracker.getInstrumentHandler("Plus2128")
 
 print(tracker.getConnectedDevices())
 
@@ -177,7 +177,7 @@ app.quit()
 ################################################ Making and Populating the Excel Workbook ################################################
 
 # Define the file paths
-prefixes = ["2_" + str(sweep) for sweep in SWEEPS] # Assumes there is a 1_ prefixed file from a quiet time measurement. If this is not the case, change this line to: prefixes = [str(sweep) for sweep in SWEEPS]
+prefixes = [str(sweep) for sweep in SWEEPS] # Assumes there is a 1_ prefixed file from a quiet time measurement. If this is not the case, change this line to: prefixes = [str(sweep) for sweep in SWEEPS]
 csv_files = find_files(prefixes)
 
 # Create a new workbook
@@ -318,8 +318,7 @@ linear_plot.width = 21.5
 xlsx_sheet.add_chart(linear_plot, "E27")
 
 # Save the combined data as a new XLSX file
-timestamp_str = datetime.now().strftime("%Y%m%d %H_%M_%S")
 combined_file = "Box Plot " + timestamp_str + ".xlsx"
-workbook.save(combined_file)
+workbook.save(f'{folder_name}/{combined_file}')
 
-print(f"Data combined and saved successfully at {combined_file}.")
+print(f"Data combined and saved successfully at {folder_name}/{combined_file}.")
