@@ -173,7 +173,7 @@ def main(dataframe, label_peaks=False):
         # Create a polygon representing the area between the line made from the double clicked points and the curve
         polygon_points = [(start_x, start_y)]
         for index, row in dataframe.iterrows():
-            if (start_x <= row[x_label] <= end_x) and (min(start_y, end_y) <= row[y_label]):
+            if (start_x <= row[x_label] <= end_x): # and (min(start_y, end_y) <= row[y_label]):
                 polygon_points.append((row[x_label], row[y_label]))
         polygon_points.append((end_x, end_y))
         polygon = Polygon(polygon_points, closed=True, color='red', alpha=0.5)
