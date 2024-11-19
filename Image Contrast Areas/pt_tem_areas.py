@@ -3,9 +3,7 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
-from scipy.ndimage import gaussian_filter
-
-#test2
+from scipy.ndimage import gaussian_filter, label
 
 # Constants for scale
 scale_length_nm = 20  # Scale bar length in nm
@@ -26,10 +24,10 @@ for tif_file in tif_files:
     initial_sigma = 50
 
     # Create a new figure for this file
-    fig, axes = plt.subplots(1, 4, figsize=(20, 5), gridspec_kw={'wspace': 0.1})  # Decrease subplot spacing
+    fig, axes = plt.subplots(1, 5, figsize=(25, 5), gridspec_kw={'wspace': 0.1})  # Add extra subplot for histogram
 
     # Define axes for each subplot
-    ax_raw, ax_normalized, ax_binary, ax_contour = axes
+    ax_raw, ax_normalized, ax_binary, ax_contour, ax_histogram = axes
 
     # Plot raw image
     ax_raw.imshow(image, cmap="gray")
@@ -63,6 +61,19 @@ for tif_file in tif_files:
             for coll in contour_plot_container[0].collections:
                 coll.remove()  # Clear previous contours
         contour_plot_container[0] = ax_contour.contour(binary_image, colors="red", linewidths=0.2)
+
+        # Calculate and plot histogram of dark region areas
+        labeled_array, num_features = label(binary_image)  # Label connected dark regions
+        region_areas = [
+            np.sum(labeled_array == region) * pixel_area for region in range(1, num_features + 1)
+        ]  # Calculate areas in nm²
+
+        # Update histogram plot
+        ax_histogram.clear()
+        ax_histogram.hist(region_areas, bins=20, color="blue", edgecolor="black")
+        ax_histogram.set_title("Histogram of Dark Region Areas", fontsize=10)
+        ax_histogram.set_xlabel("Area (nm²)", fontsize=8)
+        ax_histogram.set_ylabel("Count", fontsize=8)
 
         # Update area ratio text
         dark_pixels = np.sum(binary_image)
@@ -98,6 +109,16 @@ for tif_file in tif_files:
     ax_contour.set_title("Contours", fontsize=10)
     ax_contour.axis("off")
 
+    # Add histogram of dark region areas
+    labeled_array, num_features = label(binary_image)  # Label connected dark regions
+    region_areas = [
+        np.sum(labeled_array == region) * pixel_area for region in range(1, num_features + 1)
+    ]  # Calculate areas in nm²
+    ax_histogram.hist(region_areas, bins=20, color="blue", edgecolor="black")
+    ax_histogram.set_title("Histogram of Dark Region Areas", fontsize=10)
+    ax_histogram.set_xlabel("Area (nm²)", fontsize=8)
+    ax_histogram.set_ylabel("Count", fontsize=8)
+
     # Add text for the dark-to-total area ratio
     dark_pixels = np.sum(binary_image)
     light_pixels = binary_image.size - dark_pixels
@@ -114,7 +135,7 @@ for tif_file in tif_files:
     slider_threshold = Slider(ax_slider_threshold, "Binary Image Threshold", 0.0, 1.0, valinit=initial_threshold, valstep=0.01)
 
     ax_slider_sigma = plt.axes([0.18, 0.06, 0.3, 0.03], facecolor="lightgray")  # Sigma slider position
-    slider_sigma = Slider(ax_slider_sigma, "Guassian Filter Sigma", 1, 100, valinit=initial_sigma, valstep=1)
+    slider_sigma = Slider(ax_slider_sigma, "Gaussian Filter Sigma", 1, 100, valinit=initial_sigma, valstep=1)
 
     # Connect sliders to the update function
     slider_threshold.on_changed(lambda val: update())
