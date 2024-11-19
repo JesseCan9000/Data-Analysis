@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from scipy.ndimage import gaussian_filter
 
+#TEST
+
 # Constants for scale
 scale_length_nm = 20  # Scale bar length in nm
 scale_length_pixels = 69  # Scale bar length in pixels
