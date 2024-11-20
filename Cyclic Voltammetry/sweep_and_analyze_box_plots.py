@@ -45,11 +45,11 @@ from SquidstatPyLibrary import AisConstantCurrentElement
 SWEEPS = [1500, 1250, 1000, 750, 500]
 
 # Enter device information
-DEVICE_BATCH = "Jaeheon LiNbO3"
-DEVICE_NUMBER = "000 457"
+DEVICE_BATCH = "60nm LiNbO3 15nm HfO2 Good 3 11202024"
+DEVICE_NUMBER = "60nm LiNbO3 15nm HfO2 Good 3"
 ACTIVE_AREA = 1 # cm2
-MAX_VOLTAGE = 0.5 # V
-MIN_VOLTAGE = -1 # V
+MAX_VOLTAGE = 2 # V
+MIN_VOLTAGE = -6 # V
 
 ################################################ Functions ################################################
 
@@ -89,8 +89,8 @@ def save_data_to_csv(channel, data):
     data_list.append([1, "Filler", "Cyclic Voltammetry", data.timestamp, data.workingElectrodeVoltage, data.workingElectrodeVoltage, data.current, 0, 0, data.counterElectrodeVoltage])
     
     # Check if it's the first 10 rows and remove rows with WorkingElectrodeVoltage < 0.95
-    if len(data_list) <= 10:
-        data_list[:] = [row for row in data_list if math.isclose(abs(row[4]), 0.95, rel_tol=0.0, abs_tol=0.05)]
+    # if len(data_list) <= 10:
+    #     data_list[:] = [row for row in data_list if math.isclose(abs(row[4]), 0.95, rel_tol=0.0, abs_tol=0.05)]
 
 def current_voltage_integral(workbook, worksheet_name, start_row, end_row):
     ws = workbook[worksheet_name]
