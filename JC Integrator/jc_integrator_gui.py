@@ -8,6 +8,7 @@ from matplotlib.text import Text
 from mplcursors import cursor as mpl_cursor
 import math
 import numpy as np
+from scipy.interpolate import interp1d
 from shapely.geometry import Polygon as ShapelyPolygon
 from scipy.ndimage import gaussian_filter
 import tkinter as tk
@@ -123,6 +124,7 @@ def main(dataframe, label_peaks=False):
     plt.title(f'29 vs. {x_label}')
 
     peak_x_bounds = []
+    peak_y_bounds = []
     peak_indices = []
     peak_count = 1
     
@@ -149,12 +151,74 @@ def main(dataframe, label_peaks=False):
             nearest_y = dataframe.iloc[nearest_index][y_label]
 
             peak_x_bounds.append(nearest_x)
+            peak_y_bounds.append(nearest_y)
             print(f"• Clicked point: {x_label}={nearest_x}, {y_label}={nearest_y:.2e}")
     
+    def calculate_fwhm(dataframe, start_index, end_index, x_label, y_label, x_axis_units):
+        # Step 1: Calculate the half-max value
+        min_y = min(dataframe.loc[start_index:end_index, y_label])
+        max_y = max(dataframe.loc[start_index:end_index, y_label])
+        half_max = (max_y - min_y) / 2 + min_y
+        print(f'• Half Max: {half_max}')
+
+        # Step 2: Prepare data
+        peak_data = dataframe.loc[start_index:end_index, [x_label, y_label]]
+        x_values = peak_data[x_label].values
+        y_values = peak_data[y_label].values
+
+        # Create cubic spline interpolation function
+        interp = interp1d(x_values, y_values, kind='cubic', bounds_error=False, fill_value="extrapolate")
+
+        try:
+            # Find all points where y is above or below the half_max
+            above_half_max = y_values >= half_max
+            
+            # Find the transitions
+            transitions = np.where(np.diff(above_half_max))[0]
+            
+            if len(transitions) < 2:
+                raise ValueError("Not enough transitions found around half maximum")
+            
+            # Find the actual interpolated x values at half max
+            interpolated_x = []
+            for idx in transitions:
+                # Linear interpolation between the two points around the transition
+                x1, x2 = x_values[idx], x_values[idx+1]
+                y1, y2 = y_values[idx], y_values[idx+1]
+                
+                # Interpolate to find x at half_max
+                x_at_half_max = x1 + (half_max - y1) * (x2 - x1) / (y2 - y1)
+                interpolated_x.append(x_at_half_max)
+            
+            # Ensure we have two different points
+            if len(set(interpolated_x)) < 2:
+                raise ValueError("Could not find distinct half-max points")
+            
+            # Take the leftmost and rightmost points if multiple found
+            lower_x = min(interpolated_x)
+            upper_x = max(interpolated_x)
+            
+            print(f'• Interpolated X (Lower, Upper): ({lower_x}, {upper_x})')
+            
+            # Calculate FWHM
+            fwhm = abs(upper_x - lower_x)
+            print(f'• FWHM: {fwhm:.2e} {x_axis_units}')
+
+            ax.hlines(half_max, xmin=lower_x, xmax=upper_x, color='green', linestyle='-')
+            
+            return fwhm
+            
+        except ValueError as e:
+            print(f"Error in FWHM calculation: {e}")
+            return None
+
     def compute_peak_area(event=None, convert_to_nC=True):
         ''' Draws a polygon bounded by the two points double clicked by the user and the data points between thsoe two bounds.
         Uses Shapely to calculate the area of this 29 vs Temperature (C) polygon and convert it into nC '''
         nonlocal peak_count
+
+        x_axis_units = x_units.get()
+        y_axis_units = y_units.get()
 
         # Check if there are an even number of peaks clicked. Even is required because exactly two points define the bounds of a peak in this code.
         if len(peak_x_bounds) % 2 != 0:
@@ -183,13 +247,36 @@ def main(dataframe, label_peaks=False):
         polygon_area = shapely_polygon.area
 
         # Print the peak area
-        if x_units.get() and y_units.get():
-            print(f"• Peak Area Abs. Value: {polygon_area:.2e} {y_units.get()}•{x_units.get()}")
+        if x_axis_units and y_axis_units:
+            print(f"• Peak Area Abs. Value: {polygon_area:.2e} {y_axis_units}•{x_axis_units}")
         else:
             print(f"• Peak Area Abs. Value: {polygon_area:.2e}")
         # Extract the exterior coordinates of the polygon
         exterior_coords = shapely_polygon.exterior.coords.xy
         exterior_x, exterior_y = exterior_coords[0], exterior_coords[1]
+
+        # # Calculate Full Width at Half Maximum (FWHM)
+        calculate_fwhm(dataframe, start_index, end_index, x_label, y_label, x_axis_units)
+        # half_max = (max(dataframe.loc[start_index:end_index, y_label]) - min(dataframe.loc[start_index:end_index, y_label]))/2 + min(dataframe.loc[start_index:end_index, y_label])
+        # print(f'• Half Max: {half_max}')
+
+
+
+        # left_idx = (dataframe.loc[start_index:end_index, y_label] - half_max).abs().idxmin()
+        # print(f'• Left Index: {left_idx}')
+        # right_idx = (dataframe.loc[left_idx:end_index, y_label] - half_max).abs().idxmin()
+        # print(f'• Right Index: {right_idx}')
+
+        # x_order = order_of_magnitude(dataframe[x_label].median())
+        # y_order = order_of_magnitude(dataframe[y_label].median())
+        # distances = np.sqrt(((dataframe[x_label].values - left_idx)/math.pow(10, x_order))**2 + ((dataframe[y_label].values - iy)/math.pow(10, y_order))**2)
+        # nearest_index = np.argmin(distances)
+        
+        # nearest_x = dataframe.iloc[nearest_index][x_label]
+        # nearest_y = dataframe.iloc[nearest_index][y_label]
+
+        # fwhm = dataframe.loc[right_idx, x_label] - dataframe.loc[left_idx, x_label]
+        # print(f"• FWHM: {fwhm:.2e} {x_axis_units}")
 
         # Create a Polygon patch and render it on the plot
         polygon_patch = Polygon(xy=list(zip(exterior_x, exterior_y)), closed=True, color='red', alpha=0.5)
@@ -200,9 +287,9 @@ def main(dataframe, label_peaks=False):
             mid_x = (start_x + end_x) / 2
 
             if convert_to_nC:
-                ax.text(mid_x, 1.5 * (start_y + end_y) / 2, f'Peak {peak_count} Area Abs. Value\n{polygon_area*math.pow(10,9):.2e} nC', horizontalalignment='center', verticalalignment='center', color='white', path_effects=[pe.withStroke(linewidth=4, foreground="black")])
+                ax.text(mid_x, 1.5 * (start_y + end_y) / 2, f'Peak {peak_count} Area Abs. Value\n{polygon_area*math.pow(10,9):.3e} nC', horizontalalignment='center', verticalalignment='center', color='white', path_effects=[pe.withStroke(linewidth=4, foreground="black")])
             else:
-                ax.text(mid_x, 1.5 * (start_y + end_y) / 2, f'Peak {peak_count} Area Abs. Value\n{polygon_area:.2e} {y_label_units}•{x_axis_units}', horizontalalignment='center', verticalalignment='center', color='white', path_effects=[pe.withStroke(linewidth=4, foreground="black")])
+                ax.text(mid_x, 1.5 * (start_y + end_y) / 2, f'Peak {peak_count} Area Abs. Value\n{polygon_area:.2e} {y_axis_units}•{x_axis_units}', horizontalalignment='center', verticalalignment='center', color='white', path_effects=[pe.withStroke(linewidth=4, foreground="black")])
 
         peak_count += 1
 
@@ -214,6 +301,7 @@ def main(dataframe, label_peaks=False):
         the next peak area, click the undo button if you receive the "Odd number of points double clicked..." error. '''
         if peak_x_bounds:
             ix = peak_x_bounds.pop()
+            iy = peak_y_bounds.pop()
             print(f"• Undo Click: {x_label}={ix}, {y_label}={iy} removed.")
 
     def remove_peak(event):
@@ -223,6 +311,8 @@ def main(dataframe, label_peaks=False):
             ax.patches.pop()
         if ax.texts:
             ax.texts.pop()
+        # if ax.hlines:
+        #     ax.hlines.pop()
 
     # def leading_edge(event):
     #     if len(peak_x_bounds) < 2:
@@ -297,7 +387,7 @@ def main(dataframe, label_peaks=False):
         integral, start_index, end_index, start_x, end_x = compute_peak_area(convert_to_nC=False) # integral of y(x)dx
 
         print()
-        print(f'• Integral: {integral:.2e} {y_label_units}•{x_axis_units}')
+        print(f'• Integral: {integral:.2e} {y_axis_units}•{x_axis_units}')
 
         print(f'• Reactor Volume: {reactor_volume} L')
 

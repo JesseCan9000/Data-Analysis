@@ -2,13 +2,26 @@ import os
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, TextBox
 from scipy.ndimage import gaussian_filter, label
+
+# Add this function to validate and convert input from TextBox
+def validate_and_update(val, default, dtype=float):
+    try:
+        return dtype(val)
+    except ValueError:
+        return default
 
 # Constants for scale
 scale_length_nm = 20  # Scale bar length in nm
 scale_length_pixels = 69  # Scale bar length in pixels
 pixel_area = (scale_length_nm / scale_length_pixels)**2  # Area in nm² per pixel
+
+nbins = 60 # Number of bins for histogram
+cutoff_lower = 1 # nm², lower cutoff for histogram contour area
+cutoff_upper = 60 # nm², upper cutoff for histogram contour area
+
+
 
 # Gather all .tif files in the directory
 tif_files = ["Pt Thin Films/" + f for f in os.listdir("Pt Thin Films") if f.endswith('.tif')]
@@ -24,7 +37,22 @@ for tif_file in tif_files:
     initial_sigma = 50
 
     # Create a new figure for this file
-    fig, axes = plt.subplots(1, 5, figsize=(25, 5), gridspec_kw={'wspace': 0.1})  # Add extra subplot for histogram
+    fig, axes = plt.subplots(1, 5, figsize=(25, 5), gridspec_kw={'wspace': 0.3})
+
+    # Add a separate area for TextBoxes to the right of the histogram
+    ax_cutoff_lower = plt.axes([0.95, 0.6, 0.03, 0.04])
+    ax_cutoff_upper = plt.axes([0.95, 0.5, 0.03, 0.04])
+    ax_nbins = plt.axes([0.95, 0.4, 0.03, 0.04])
+
+    # Create TextBox widgets
+    textbox_cutoff_lower = TextBox(ax_cutoff_lower, "Lower Cutoff", initial=f"{cutoff_lower}")
+    textbox_cutoff_upper = TextBox(ax_cutoff_upper, "Upper Cutoff", initial=f"{cutoff_upper}")
+    textbox_nbins = TextBox(ax_nbins, "Bins", initial=f"{nbins}")
+
+    # Create button to submit TextBox values
+    button_submit = plt.axes([0.92, 0.3, 0.06, 0.04])
+    button_submit_button = plt.Button(button_submit, "Submit")
+    button_submit_button.on_clicked(lambda val: update())
 
     # Define axes for each subplot
     ax_raw, ax_normalized, ax_binary, ax_contour, ax_histogram = axes
@@ -39,6 +67,7 @@ for tif_file in tif_files:
 
     # Function to update all plots based on current slider values
     def update():
+        global cutoff_lower, cutoff_upper, nbins
         sigma = slider_sigma.val
         threshold = slider_threshold.val
 
@@ -68,12 +97,26 @@ for tif_file in tif_files:
             np.sum(labeled_array == region) * pixel_area for region in range(1, num_features + 1)
         ]  # Calculate areas in nm²
 
+        # Validate and update values
+        cutoff_lower = validate_and_update(textbox_cutoff_lower.text, cutoff_lower, float)
+        cutoff_upper = validate_and_update(textbox_cutoff_upper.text, cutoff_upper, float)
+        nbins = validate_and_update(textbox_nbins.text, nbins, int)
+
+        region_areas = [area for area in region_areas if (area > cutoff_lower) and (area < cutoff_upper)]
+        average_area = np.mean(region_areas)
+        average_diameter = 2*np.sqrt(average_area / np.pi)
+        print(len(region_areas))
+
         # Update histogram plot
         ax_histogram.clear()
-        ax_histogram.hist(region_areas, bins=20, color="blue", edgecolor="black")
+        ax_histogram.hist(region_areas, bins=nbins, color="blue", edgecolor="black")
         ax_histogram.set_title("Histogram of Dark Region Areas", fontsize=10)
         ax_histogram.set_xlabel("Area (nm²)", fontsize=8)
         ax_histogram.set_ylabel("Count", fontsize=8)
+        ax_histogram.axvline(x=average_area, color="red", linewidth=2, label="Average")
+        ax_histogram.text(x=0.7, y=0.97, s=f"Average Area: {average_area:.2f} nm²", fontsize=8, color="red", ha="center", va="center", transform=ax_histogram.transAxes)
+        ax_histogram.text(x=0.7, y=0.9, s=f"Hemisphere\nAvg. Diameter: {average_diameter:.2f} nm", fontsize=8, ha="center", va="center", transform=ax_histogram.transAxes)
+
 
         # Update area ratio text
         dark_pixels = np.sum(binary_image)
@@ -114,10 +157,19 @@ for tif_file in tif_files:
     region_areas = [
         np.sum(labeled_array == region) * pixel_area for region in range(1, num_features + 1)
     ]  # Calculate areas in nm²
-    ax_histogram.hist(region_areas, bins=20, color="blue", edgecolor="black")
+
+    region_areas = [area for area in region_areas if (area > cutoff_lower) and (area < cutoff_upper)]
+    average_area = np.mean(region_areas)
+    average_diameter = 2*np.sqrt(average_area / np.pi)
+    print(len(region_areas))
+
+    ax_histogram.hist(region_areas, bins=nbins, color="blue", edgecolor="black",)
     ax_histogram.set_title("Histogram of Dark Region Areas", fontsize=10)
     ax_histogram.set_xlabel("Area (nm²)", fontsize=8)
     ax_histogram.set_ylabel("Count", fontsize=8)
+    ax_histogram.axvline(x=average_area, color="red", linewidth=2, label="Average")
+    ax_histogram.text(x=0.7, y=0.97, s=f"Average Area: {average_area:.2f} nm²", fontsize=8, color="red", ha="center", va="center", transform=ax_histogram.transAxes)
+    ax_histogram.text(x=0.7, y=0.9, s=f"Hemisphere\nAvg. Diameter: {average_diameter:.2f} nm", fontsize=8, ha="center", va="center", transform=ax_histogram.transAxes)
 
     # Add text for the dark-to-total area ratio
     dark_pixels = np.sum(binary_image)
@@ -131,15 +183,18 @@ for tif_file in tif_files:
     )
 
     # Create sliders for threshold and sigma adjustment
-    ax_slider_threshold = plt.axes([0.62, 0.06, 0.3, 0.03], facecolor="lightgray")  # Threshold slider position
+    ax_slider_threshold = plt.axes([0.62, 0.01, 0.3, 0.03], facecolor="lightgray")  # Threshold slider position
     slider_threshold = Slider(ax_slider_threshold, "Binary Image Threshold", 0.0, 1.0, valinit=initial_threshold, valstep=0.01)
 
-    ax_slider_sigma = plt.axes([0.18, 0.06, 0.3, 0.03], facecolor="lightgray")  # Sigma slider position
+    ax_slider_sigma = plt.axes([0.18, 0.01, 0.3, 0.03], facecolor="lightgray")  # Sigma slider position
     slider_sigma = Slider(ax_slider_sigma, "Gaussian Filter Sigma", 1, 100, valinit=initial_sigma, valstep=1)
 
     # Connect sliders to the update function
     slider_threshold.on_changed(lambda val: update())
     slider_sigma.on_changed(lambda val: update())
+    # textbox_cutoff_lower.on_submit(lambda val: update())
+    # textbox_cutoff_upper.on_submit(lambda val: update())
+    # textbox_nbins.on_submit(lambda val: update())
 
     # Show the plot
     plt.suptitle(tif_file.split("/")[-1], fontsize=12, y=0.95)
