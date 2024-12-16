@@ -67,10 +67,10 @@ def plot_current_flow_rate_and_temperature(squidstat_data_csv, mfc_data_csv, tem
 
 if __name__ == "__main__":
     # USER: MODIFY THESE LINES TO BE THE FILE PATH OF THE CORRESPODING DATA FILES
-    mfc_data_csv = "MFC Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
-    squidstat_data_csv = "Manual Experiment 0V overnight (2024-02-15 22_08_50)/Manual Experiment(2024-02-15 22_08_50).csv" # required for calculate_peak_areas() and plot_current_flow_rate_and_temperature()
-    temperature_data_csv = "Temperature Log NH3 IPT 02152024.csv" # required for plot_current_flow_rate_and_temperature()
+    mfc_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/Isopotential Titration/NH3/0V/11192024/MFC Log Ar_He IPT 11192024.csv" # required for plot_current_flow_rate_and_temperature()
+    squidstat_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/Isopotential Titration/NH3/0V/11192024/Manual Experiment(2024-11-19 13_11_10)/Manual Experiment(2024-11-19 13_10_42).csv" # required for calculate_peak_areas() and plot_current_flow_rate_and_temperature()
+    temperature_data_csv = "C:/Users/jcmar/OneDrive/Desktop/Data/Isopotential Titration/NH3/0V/11192024/001_20241119.csv" # required for plot_current_flow_rate_and_temperature()
 
-    DEVICE_AREA = 1.1 # cm2
+    DEVICE_AREA = 1.0 # cm2
 
     plot_current_flow_rate_and_temperature(squidstat_data_csv, mfc_data_csv, temperature_data_csv)

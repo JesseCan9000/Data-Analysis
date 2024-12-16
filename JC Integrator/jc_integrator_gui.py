@@ -15,6 +15,14 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
 
+custom_rc_params = {
+    'axes.labelsize': 28,   # Font size for x and y labels
+    'xtick.labelsize': 22,  # Font size for x-axis tick labels
+    'ytick.labelsize': 22,  # Font size for y-axis tick labels
+}
+
+plt.rcParams.update(custom_rc_params)
+
 class ToolTip:
     """Class to create a tooltip for a given widget."""
     def __init__(self, widget, text='widget info'):
@@ -121,7 +129,8 @@ def main(dataframe, label_peaks=False):
     ax.scatter(dataframe[x_label], dataframe[y_label], color='blue')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    plt.title(f'29 vs. {x_label}')
+    ax.set_position([0.24, 0.25, 0.67, 0.67])
+    # plt.title(f'29 vs. {x_label}')
 
     peak_x_bounds = []
     peak_y_bounds = []
@@ -159,7 +168,7 @@ def main(dataframe, label_peaks=False):
         min_y = min(dataframe.loc[start_index:end_index, y_label])
         max_y = max(dataframe.loc[start_index:end_index, y_label])
         half_max = (max_y - min_y) / 2 + min_y
-        print(f'• Half Max: {half_max}')
+        # print(f'• Half Max: {half_max}')
 
         # Step 2: Prepare data
         peak_data = dataframe.loc[start_index:end_index, [x_label, y_label]]
@@ -198,7 +207,7 @@ def main(dataframe, label_peaks=False):
             lower_x = min(interpolated_x)
             upper_x = max(interpolated_x)
             
-            print(f'• Interpolated X (Lower, Upper): ({lower_x}, {upper_x})')
+            # print(f'• Interpolated X (Lower, Upper): ({lower_x}, {upper_x})')
             
             # Calculate FWHM
             fwhm = abs(upper_x - lower_x)
@@ -248,12 +257,18 @@ def main(dataframe, label_peaks=False):
 
         # Print the peak area
         if x_axis_units and y_axis_units:
-            print(f"• Peak Area Abs. Value: {polygon_area:.2e} {y_axis_units}•{x_axis_units}")
+            print(f"• Peak Area Abs. Value: {polygon_area:.3e} {y_axis_units}•{x_axis_units}")
         else:
-            print(f"• Peak Area Abs. Value: {polygon_area:.2e}")
+            print(f"• Peak Area Abs. Value: {polygon_area:.3e}")
         # Extract the exterior coordinates of the polygon
         exterior_coords = shapely_polygon.exterior.coords.xy
         exterior_x, exterior_y = exterior_coords[0], exterior_coords[1]
+
+        # Print the triangle area correction (only applicable to adsorption peaks)
+        base = abs(start_x - end_x)
+        height = abs(start_y - end_y)
+        area = 0.5*base*height
+        print(f"• Triangle Correction Area: {area:.3e}")
 
         # # Calculate Full Width at Half Maximum (FWHM)
         calculate_fwhm(dataframe, start_index, end_index, x_label, y_label, x_axis_units)
@@ -414,17 +429,17 @@ def main(dataframe, label_peaks=False):
     remove_peak_ax = plt.axes([0.13, 0.01, 0.17, 0.05])
     remove_peak_button = Button(remove_peak_ax, 'Remove Peak')
     remove_peak_button.on_clicked(remove_peak)
-    
+
     compute_ax = plt.axes([0.625, 0.01, 0.23, 0.05])
     compute_button = Button(compute_ax, 'Compute Peak Area')
     compute_button.on_clicked(compute_peak_area)
 
-    gaussian_filter_ax = plt.axes([0.92, 0.60, 0.07, 0.15])
-    gaussian_filter_slider = Slider(gaussian_filter_ax, 'Gaussian Filter\nStd Dev', 0, 10, valinit=5, orientation='vertical')
+    # gaussian_filter_ax = plt.axes([0.92, 0.60, 0.07, 0.15])
+    # gaussian_filter_slider = Slider(gaussian_filter_ax, 'Gaussian Filter\nStd Dev', 0, 10, valinit=5, orientation='vertical')
 
-    subtract_baseline_ax = plt.axes([0.92, 0.50, 0.07, 0.07])
-    subtract_baseline_button = Button(subtract_baseline_ax, 'Subtract\nBaseline')
-    subtract_baseline_button.on_clicked(subtract_baseline)
+    # subtract_baseline_ax = plt.axes([0.92, 0.50, 0.07, 0.07])
+    # subtract_baseline_button = Button(subtract_baseline_ax, 'Subtract\nBaseline')
+    # subtract_baseline_button.on_clicked(subtract_baseline)
 
     # if versus_time == True:
     #     mols_desorbed_ax = plt.axes([0.88, 0.25, 0.12, 0.07])

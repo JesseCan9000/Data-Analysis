@@ -30,6 +30,10 @@ tif_files = ["Pt Thin Films/" + f for f in os.listdir("Pt Thin Films") if f.ends
 for tif_file in tif_files:
     # Load image
     image = Image.open(tif_file).convert("L")
+    width, height = image.size # pixels
+    width = width*scale_length_nm/scale_length_pixels
+    height = height*scale_length_nm/scale_length_pixels
+    print(f'Image size: {width:.2f} nm x {height:.2f} nm = {width*height:.2f} nm²')
     image_array = np.array(image)
 
     # Initial values for sliders
